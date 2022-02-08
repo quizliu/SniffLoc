@@ -1,3 +1,4 @@
+import json
 import tkinter as tk
 import requests
 from scapy.all import *
@@ -31,7 +32,7 @@ def sniffing(gui, timeout=10):
 def filtering(pkts, msg_list, gui):
 	msg = "filtering..."
 	update_window(gui, msg, gui.output)
-	target = "02 00 48"  # QQ语音电话数据包的协议是UDP，报文头020048
+	target = "02 00 48"  # UDP, 020048
 	ip_list = set()
 	for i in range(len(msg_list)):
 		if target in msg_list[i]:
@@ -58,7 +59,7 @@ def find_ip(ip_list, gui):
 	return
 
 
-def geolocation(ip, gui, country='cn'):
+def geolocation(ip, gui, country):
 	if not ip:
 		return
 	msg = "locating..."
@@ -78,11 +79,28 @@ def geolocation(ip, gui, country='cn'):
 	return
 
 
+def parse_response(text, country):
+	if country == 'us':
+		text = text.replace('false', 'False')
+		text = text.replace('true', 'True')
+		source = eval(text)
+		info = {'ip', 'country_name', 'region_name', 'city', 'latitude', 'longitude'}
+		source = {k: v for k, v in source.items() if k in info}
+	elif country == 'cn':
+		text = text[5:-1]
+		source = eval(text)
+		info = {'ip', 'data'}
+		source = {k: v for k, v in source.items() if k in info}
+		source['data'] = ', '.join(i for i in source['data'] if i)
+	json_str = json.dumps(source, ensure_ascii=False, indent=4)
+	return json_str
+
+
 class GUI:
 	def __init__(self):
 		self.on_hit = False
 		self.window = tk.Tk()
-		self.window.title = "SniffLoc"
+		self.window.title("SniffLoc")
 		self.window.geometry('500x300')
 		self.output = tk.StringVar()  # show messages
 		self.result = tk.StringVar()  # show results if success
@@ -103,6 +121,7 @@ class GUI:
 		self.ips = None
 		self.target_ip = None
 		self.response = None
+		self.country = 'us'
 
 	def backend(self):
 		if not self.on_hit:
@@ -111,14 +130,16 @@ class GUI:
 			sniffing(self)  # TODO: add timeout from button
 			filtering(self.packets, self.messages, self)
 			find_ip(self.ips, self)
-			geolocation(self.target_ip, self)  # TODO: add country from button
+			geolocation(self.target_ip, self, self.country)  # TODO: add country from button
 			if self.response:
-				update_window(self, self.response.text, self.result)
+				json_response = parse_response(self.response.text, self.country)
+				update_window(self, json_response, self.result)
 				update_window(self, 'success!', self.output)
 				self.response = None
 				self.packets = self.messages = self.ips = self.target_ip = None
 			else:
 				update_window(self, 'fail!', self.output)
+				update_window(self, 'sniff failed or no data, please try again!', self.result)
 				self.response = None
 		self.on_hit = False
 		return
