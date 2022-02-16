@@ -98,23 +98,38 @@ def parse_response(text, country):
 
 class GUI:
 	def __init__(self):
-		self.on_hit = False
 		self.window = tk.Tk()
 		self.window.title("SniffLoc")
-		self.window.geometry('500x300')
+		self.window.geometry('600x480')
 		self.output = tk.StringVar()  # show messages
 		self.result = tk.StringVar()  # show results if success
-		self.label1 = tk.Label(self.window, textvariable=self.output, bg='green', fg='white', font=('Arial', 18),
-							   width=30,
-							   height=2)
-		self.label1.pack()
-		self.label2 = tk.Label(self.window, textvariable=self.result, bg='#c1809a', fg='white', font=('Arial', 18),
+		self.info = tk.StringVar()  # info for country update
+		self.label1 = tk.Label(self.window, textvariable=self.output,
+							   bg='#E74C3C', fg='black', font=('Arial', 18), width=50, height=2)
+		self.label2 = tk.Label(self.window, textvariable=self.result, bg='#28B463', fg='black', font=('Arial', 18),
 							   width=50,
-							   height=6)
-		self.label2.pack()
+							   height=10)
+		self.label3 = tk.Label(self.window, textvariable=self.info, bg='#3498DB', fg='black', font=('Arial', 18),
+							   width=20,
+							   height=2)
 		self.button = tk.Button(self.window, text='click to start', font=('Arial', 18), width=10, height=1,
-								command=self.backend)
+								command=self.backend, activebackground='red')
+		self.button_country_us = tk.Button(self.window, text='US', font=('Arial', 18), width=10, height=1,
+										   command=lambda: self.callback_country('us'), activeforeground="red")
+		self.button_country_cn = tk.Button(self.window, text='CN', font=('Arial', 18), width=10, height=1,
+										   command=lambda: self.callback_country('cn'), activeforeground='red')
+		self.label1.pack()
+		self.label2.pack()
+		self.label3.pack()
 		self.button.pack()
+		self.button_country_us.pack()
+		self.button_country_cn.pack()
+
+		self.button_country_us.place(x=70, y=350)
+		self.button_country_cn.place(in_=self.button_country_us, rely=1, relx=-0.01)
+		self.label3.place(x=320, y=350)
+
+		self.on_hit = False  # lock all buttons while backend running
 
 		self.packets = None
 		self.messages = None
@@ -123,6 +138,13 @@ class GUI:
 		self.response = None
 		self.country = 'us'
 
+	def callback_country(self, string):
+		if not self.on_hit:
+			self.on_hit = True
+			self.country = string
+			update_window(self, f'using conutry API: {string}', self.info)
+			self.on_hit = False
+
 	def backend(self):
 		if not self.on_hit:
 			self.on_hit = True
@@ -130,7 +152,7 @@ class GUI:
 			sniffing(self)  # TODO: add timeout from button
 			filtering(self.packets, self.messages, self)
 			find_ip(self.ips, self)
-			geolocation(self.target_ip, self, self.country)  # TODO: add country from button
+			geolocation(self.target_ip, self, self.country)
 			if self.response:
 				json_response = parse_response(self.response.text, self.country)
 				update_window(self, json_response, self.result)
